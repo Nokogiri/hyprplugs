@@ -1,0 +1,94 @@
+diff --git a/Makefile b/Makefile
+index 8ab567d..ae7a933 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,6 +1,20 @@
+-SOURCE_FILES=$(wildcard src/*.cpp src/*.hpp)
++CXXFLAGS = -shared -fPIC --no-gnu-unique -g -std=c++2b -Wno-c++11-narrowing
++INCLUDES = `pkg-config --cflags pixman-1 libdrm hyprland`
++#LIBS = `pkg-config --libs pangocairo`
++
++SRC = main.cpp barDeco.cpp
++TARGET = hyprfocus.so
++
++all: $(TARGET)
++
++$(TARGET): $(SRC)
++	$(CXX) $(CXXFLAGS) $(INCLUDES) $^ $> -o $@ $(LIBS)
+ 
+-all:
+-	$(CXX) -shared -fPIC --no-gnu-unique $(SOURCE_FILES)  -o hyprfocus.so -g `pkg-config --cflags pixman-1 libdrm hyprland` -std=c++2b
+ clean:
+-	rm ./hyprfocus.so
++	rm ./$(TARGET)
++
++meson-build:
++	mkdir -p build
++	cd build && meson .. && ninja
++
++.PHONY: all meson-build clean
+diff --git a/meson.build b/meson.build
+new file mode 100644
+index 0000000..3202625
+--- /dev/null
++++ b/meson.build
+@@ -0,0 +1,33 @@
++project('hyprfocus', 'cpp',
++  version: '0.1',
++  default_options: ['buildtype=release'],
++)
++
++cpp_compiler = meson.get_compiler('cpp')
++if cpp_compiler.has_argument('-std=c++23')
++  add_global_arguments('-std=c++23', language: 'cpp')
++elif cpp_compiler.has_argument('-std=c++2b')
++  add_global_arguments('-std=c++2b', language: 'cpp')
++else
++  error('Could not configure current C++ compiler (' + cpp_compiler.get_id() + ' ' + cpp_compiler.version() + ') with required C++ standard (C++23)')
++endif
++
++add_project_arguments(
++  [
++    '-Wno-narrowing',
++  ],
++  language: 'cpp')
++
++globber = run_command('find', './src', '-name', '*.cpp', check: true)
++src = globber.stdout().strip().split('\n')
++
++hyprland = dependency('hyprland')
++
++shared_module(meson.project_name(), src,
++  dependencies: [
++    dependency('hyprland'),
++    dependency('pixman-1'),
++    dependency('libdrm')
++  ],
++  install: true,
++)
+diff --git a/src/Makefile b/src/Makefile
+new file mode 100644
+index 0000000..ae7a933
+--- /dev/null
++++ b/src/Makefile
+@@ -0,0 +1,20 @@
++CXXFLAGS = -shared -fPIC --no-gnu-unique -g -std=c++2b -Wno-c++11-narrowing
++INCLUDES = `pkg-config --cflags pixman-1 libdrm hyprland`
++#LIBS = `pkg-config --libs pangocairo`
++
++SRC = main.cpp barDeco.cpp
++TARGET = hyprfocus.so
++
++all: $(TARGET)
++
++$(TARGET): $(SRC)
++	$(CXX) $(CXXFLAGS) $(INCLUDES) $^ $> -o $@ $(LIBS)
++
++clean:
++	rm ./$(TARGET)
++
++meson-build:
++	mkdir -p build
++	cd build && meson .. && ninja
++
++.PHONY: all meson-build clean
